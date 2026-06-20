@@ -57,10 +57,13 @@ in
       extraDescription = "Used in various ways by colima.";
     };
     curlPackage = lib.mkPackageOption pkgs "curl" {
-      extraDescription = "Used by colima to donwload images.";
+      extraDescription = "Used by colima to download images.";
     };
     bashPackage = lib.mkPackageOption pkgs "bashNonInteractive" {
       extraDescription = "Used by colima's internal scripts.";
+    };
+    kubectlPackage = lib.mkPackageOption pkgs "kubectl" {
+      extraDescription = "Used by colima when kubernetes is enabled in the profile.";
     };
 
     profiles = lib.mkOption {
@@ -242,7 +245,7 @@ in
             "${cfg.colimaHomeDir}/${profileName}/colima.yaml" = {
               source = yamlFormat.generate "colima.yaml" profile.settings;
             };
-          }) (lib.filterAttrs (name: profile: profile.settings != { }) cfg.profiles)
+          }) (lib.filterAttrs (_name: profile: profile.settings != { }) cfg.profiles)
         );
 
         sessionVariables = {
@@ -268,8 +271,8 @@ in
               "start"
               name
               "-f"
-              "--activate=${if profile.isActive then "true" else "false"}"
-              "--save-config=false"
+              "--activate=${lib.boolToString profile.isActive}"
+              "--save-config=${lib.boolToString (profile.settings == { })}"
             ];
             KeepAlive = {
               SuccessfulExit = true;
@@ -285,6 +288,7 @@ in
                 cfg.coreutilsPackage
                 cfg.curlPackage
                 cfg.bashPackage
+                cfg.kubectlPackage
                 pkgs.darwin.DarwinTools
               ];
             }
@@ -308,15 +312,13 @@ in
         lib.nameValuePair "colima-${name}" {
           Unit = {
             Description = "Colima container runtime (${name} profile)";
-            After = [ "network-online.target" ];
-            Wants = [ "network-online.target" ];
           };
           Service = {
             ExecStart = ''
               ${lib.getExe cfg.package} start ${name} \
                 -f \
-                --activate=${if profile.isActive then "true" else "false"} \
-                --save-config=false
+                --activate=${lib.boolToString profile.isActive} \
+                --save-config=${lib.boolToString (profile.settings == { })}
             '';
             Restart = "always";
             RestartSec = 2;
@@ -331,6 +333,7 @@ in
                   cfg.coreutilsPackage
                   cfg.curlPackage
                   cfg.bashPackage
+                  cfg.kubectlPackage
                 ]
               }"
             ]

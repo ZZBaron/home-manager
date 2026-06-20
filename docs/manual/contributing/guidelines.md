@@ -58,6 +58,33 @@ YAML, INI, TOML, or even a plain list of key/value pairs then consider
 using a `settings` option as described in [Nix RFC
 42](https://github.com/NixOS/rfcs/blob/master/rfcs/0042-config-option.md).
 
+These guidelines describe the minimum option design requirements. Before
+submitting a module, compare it against the upstream documentation or
+source code and verify that the generated files, services, environment
+variables, and command line arguments all match the upstream behavior
+you intend to expose.
+
+If a module installs a package, try to make the package option nullable,
+for example
+
+``` nix
+package = lib.mkPackageOption pkgs "xdg-terminal-exec" { nullable = true; };
+```
+
+This lets users keep installation outside Home Manager, for example via
+`apt` or because the program is built into macOS, while still using the
+module for configuration. Keeping the package non-nullable is fine when
+the enabled behavior structurally requires the executable or when
+package-less support would make the module significantly more complex.
+
+Avoid generating files for empty settings, null packages, or optional
+features that are not configured.
+
+If upstream does not use XDG paths by default but supports changing the
+configuration location with an environment variable, for example
+`FOO_HOME`, expose a `configDir` option and use it to respect
+`home.preferXdgDirectories`.
+
 ## Add relevant tests {#sec-guidelines-add-tests}
 
 If at all possible, make sure to add new tests and expand existing tests
@@ -81,7 +108,7 @@ Manager Git repository:
 
 ``` shell
 $ nix-build -A docs.html
-$ xdg-open ./result/share/doc/home-manager/index.xhtml
+$ xdg-open ./result/share/doc/home-manager/index.html
 ```
 
 When you have made changes to a module, it is a good idea to check that
@@ -159,6 +186,13 @@ formatted as described in [News](#sec-news).
 
 When new modules are added a news entry should be included.
 
+News entries and release notes serve different purposes. Release notes
+should be updated separately when a change affects users migrating
+between stable releases, such as state version default changes, required
+migration steps, or broad behavior changes. See
+[Release Notes](#sec-contributing-release-notes) and [News](#sec-news)
+for more details.
+
 ## Use conditional modules and news {#sec-guidelines-conditional-modules}
 
 Home Manager includes a number of modules that are only usable on some
@@ -193,6 +227,11 @@ The commits in your pull request should be reasonably self-contained,
 that is, each commit should make sense in isolation. In particular, you
 will be asked to amend any commit that introduces syntax errors or
 similar problems even if they are fixed in a later commit.
+
+Keep commits atomic and separated by concern. For example, a new
+maintainer entry should be a separate first commit, and a shared module
+should be committed separately from integrations in existing modules.
+Pull requests should not include merge commits or fixup commits.
 
 The commit messages should follow the [seven
 rules](https://chris.beams.io/posts/git-commit/#seven-rules), except for
